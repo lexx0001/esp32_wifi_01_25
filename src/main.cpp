@@ -1,41 +1,55 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <FastLED.h>
 
-#define NUM_LEDS 1     // Один RGB светодиод
-#define DATA_PIN 48    // WS2812 data pin
+#define NUM_LEDS 1
+#define DATA_PIN 48
+#define BRIGHTNESS 30
 
 CRGB leds[NUM_LEDS];
 
-void fadeToColor(CRGB targetColor, uint16_t steps = 50, uint16_t stepDelay = 15) {
-    CRGB startColor = leds[0];
+const char* WIFI_SSID = "BACbKA_Guest";
+const char* WIFI_PASS = "10111213";
 
-    for (uint16_t i = 0; i <= steps; i++) {
-        leds[0].r = startColor.r + ((int)targetColor.r - startColor.r) * i / steps;
-        leds[0].g = startColor.g + ((int)targetColor.g - startColor.g) * i / steps;
-        leds[0].b = startColor.b + ((int)targetColor.b - startColor.b) * i / steps;
-
-        FastLED.show();
-        delay(stepDelay);
-    }
+void setLedHSV(uint8_t hue, uint8_t sat = 255) {
+    leds[0] = CHSV(hue, sat, 255);   // ❗ val = 255
+    FastLED.show();
 }
 
 void setup() {
+    Serial.begin(115200);
+    delay(500);
+
     FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+    FastLED.setBrightness(BRIGHTNESS);
 
-    // гарантируем старт с выключенного состояния
-    leds[0] = CRGB::Black;
-    FastLED.show();
+    FastLED.clear(true);
 
-    // плавно загорелся зелёным
-    fadeToColor(CRGB::Green, 40, 15);
+    Serial.println("WiFi test started");
 
-    // небольшая пауза на пике
-    delay(150);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
 
-    // плавно погас
-    fadeToColor(CRGB::Black, 40, 15);
+    uint8_t attempts = 0;
+
+    // 🟡 мигаем жёлтым при подключении
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        setLedHSV(32);   // жёлтый
+        delay(300);
+        FastLED.clear(true);
+        delay(300);
+        Serial.print(".");
+        attempts++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nWiFi connected!");
+        Serial.println(WiFi.localIP());
+        setLedHSV(160);  // 🔵 синий
+    } else {
+        Serial.println("\nWiFi FAILED");
+        setLedHSV(0);    // 🔴 красный
+    }
 }
 
-void loop() {
-    // пусто — индикатор только при старте
-}
+void loop() {}
